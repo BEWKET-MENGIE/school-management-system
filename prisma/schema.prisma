@@ -1,0 +1,381 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum UserRole {
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum StudentStatus {
+  ACTIVE
+  GRADUATED
+  TRANSFERRED_OUT
+  SUSPENDED
+}
+
+enum TeacherStatus {
+  ACTIVE
+  TRANSFERRED_OUT
+  ON_LEAVE
+}
+
+enum AttendanceType {
+  PERIOD
+  GATE_CHECKIN
+  GATE_CHECKOUT
+  HALL_PASS
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum HallPassStatus {
+  NONE
+  ACTIVE
+  EXPIRED
+  RETURNED
+}
+
+enum AssessmentType {
+  HOMEWORK
+  QUIZ
+  CLASSWORK
+  MIDTERM
+  FINAL
+  PROJECT
+}
+
+enum PromotionStatus {
+  PROMOTED
+  RETAINED
+  CONDITIONALLY_PROMOTED
+  PENDING
+}
+
+enum TransferType {
+  INCOMING
+  OUTGOING
+}
+
+enum Stream {
+  NONE // Used for Grades 9 & 10
+  NATURAL_SCIENCE // Grades 11 & 12
+  SOCIAL_SCIENCE // Grades 11 & 12
+}
+
+// ==========================================
+// AUTH & USERS (Tables 1-6)
+// ==========================================
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  admin   Admin?
+  teacher Teacher?
+  student Student?
+  parent  Parent?
+
+  @@index([email])
+}
+
+model Admin {
+  id        String  @id @default(uuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  phone     String?
+}
+
+model Teacher {
+  id        String        @id @default(uuid())
+  userId    String        @unique
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  phone     String?
+  status    TeacherStatus @default(ACTIVE)
+
+  subjectAssignments TeacherSubjectClass[]
+  transfersHistory   TeacherTransfer[]
+}
+
+model Student {
+  id                String        @id @default(uuid())
+  userId            String        @unique
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName         String
+  lastName          String
+  admissionNumber   String        @unique
+  currentGradeLevel Int // Current grade (9, 10, 11, or 12)
+  currentStream     Stream        @default(NONE) // Stream for Grades 11-12
+  status            StudentStatus @default(ACTIVE)
+  dateOfBirth       DateTime?
+
+  sectionId String?
+  section   ClassSection? @relation(fields: [sectionId], references: [id])
+
+  enrollments     StudentEnrollment[] // Full yearly progression history
+  parents         StudentParent[]
+  attendanceLogs  AttendanceLog[]
+  grades          Grade[]
+  termSummaries   StudentTermSummary[]
+  externalRecords ExternalAcademicRecord[]
+  transfers       StudentTransfer[]
+
+  @@index([currentGradeLevel, status])
+}
+
+model Parent {
+  id        String @id @default(uuid())
+  userId    String @unique
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  phone     String?
+
+  students StudentParent[]
+}
+
+model StudentParent {
+  studentId    String
+  parentId     String
+  relationship String // e.g., "Mother", "Father", "Guardian"
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parent  Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, parentId])
+}
+
+// ==========================================
+// ACADEMICS & TIMETABLE (Tables 7-11)
+// ==========================================
+
+model AcademicYear {
+  id        String   @id @default(uuid())
+  yearName  String   @unique // e.g., "2025-2026"
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+
+  terms                 Term[]
+  enrollments           StudentEnrollment[]
+  teacherSubjectClasses TeacherSubjectClass[]
+}
+
+model Term {
+  id             String       @id @default(uuid())
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  termName       String // e.g., "Semester 1", "Term 2"
+  startDate      DateTime
+  endDate        DateTime
+  isCurrent      Boolean      @default(false)
+
+  attendanceLogs AttendanceLog[]
+  assessments    Assessment[]
+  summaries      StudentTermSummary[]
+}
+
+model ClassSection {
+  id          String @id @default(uuid())
+  gradeLevel  Int // 9, 10, 11, or 12
+  sectionName String // e.g., "A", "B", "C"
+
+  students           Student[]
+  enrollments        StudentEnrollment[]
+  subjectAssignments TeacherSubjectClass[]
+  attendanceLogs     AttendanceLog[]
+
+  @@unique([gradeLevel, sectionName])
+}
+
+model StudentEnrollment {
+  id              String          @id @default(uuid())
+  studentId       String
+  academicYearId  String
+  classSectionId  String
+  gradeLevel      Int // 9, 10, 11, or 12
+  stream          Stream          @default(NONE)
+  promotionStatus PromotionStatus @default(PENDING)
+  enrolledAt      DateTime        @default(now())
+
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  classSection ClassSection @relation(fields: [classSectionId], references: [id])
+
+  @@unique([studentId, academicYearId])
+  @@index([gradeLevel, stream])
+}
+
+model Subject {
+  id         String @id @default(uuid())
+  name       String // e.g., "Mathematics Grade 10"
+  code       String @unique // e.g., "MATH-10"
+  gradeLevel Int // 9, 10, 11, or 12
+
+  teacherAssignments TeacherSubjectClass[]
+}
+
+model TeacherSubjectClass {
+  id             String @id @default(uuid())
+  teacherId      String
+  subjectId      String
+  classSectionId String
+  academicYearId String
+
+  teacher      Teacher      @relation(fields: [teacherId], references: [id])
+  subject      Subject      @relation(fields: [subjectId], references: [id])
+  classSection ClassSection @relation(fields: [classSectionId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  timetables  Timetable[]
+  assessments Assessment[]
+
+  @@unique([teacherId, subjectId, classSectionId, academicYearId])
+}
+
+model Timetable {
+  id                    String              @id @default(uuid())
+  teacherSubjectClassId String
+  teacherSubjectClass   TeacherSubjectClass @relation(fields: [teacherSubjectClassId], references: [id])
+  dayOfWeek             Int // 1 (Mon) to 5 (Fri)
+  periodNumber          Int // Period 1, 2, 3...
+  startTime             String // e.g., "08:00"
+  endTime               String // e.g., "08:45"
+}
+
+// ==========================================
+// OPERATIONS & ATTENDANCE (Table 12)
+// ==========================================
+
+model AttendanceLog {
+  id             String           @id @default(uuid())
+  studentId      String
+  termId         String
+  classSectionId String?
+  date           DateTime         @default(now())
+  type           AttendanceType
+  status         AttendanceStatus
+  passStatus     HallPassStatus   @default(NONE)
+  minutesOut     Int?
+
+  student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  term         Term          @relation(fields: [termId], references: [id])
+  classSection ClassSection? @relation(fields: [classSectionId], references: [id])
+
+  @@index([studentId, date])
+}
+
+// ==========================================
+// EVALUATION & GRADEBOOK (Tables 13-15)
+// ==========================================
+
+model Assessment {
+  id                    String         @id @default(uuid())
+  teacherSubjectClassId String
+  termId                String
+  title                 String // e.g., "Midterm Exam"
+  type                  AssessmentType
+  weightPercentage      Float // e.g., 30.0 for 30%
+  maxScore              Float          @default(100.0)
+
+  teacherSubjectClass TeacherSubjectClass @relation(fields: [teacherSubjectClassId], references: [id])
+  term                Term                @relation(fields: [termId], references: [id])
+  grades              Grade[]
+}
+
+model Grade {
+  id            String  @id @default(uuid())
+  assessmentId  String
+  studentId     String
+  scoreObtained Float
+  remarks       String?
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, studentId])
+}
+
+model GradingScale {
+  id          String @id @default(uuid())
+  letterGrade String @unique // e.g., "A+", "A", "B", "F"
+  minScore    Float // e.g., 90.0
+  maxScore    Float // e.g., 100.0
+  gpaPoint    Float // e.g., 4.0
+}
+
+model StudentTermSummary {
+  id                 String          @id @default(uuid())
+  studentId          String
+  termId             String
+  totalWeightedScore Float
+  termGpa            Float
+  promotionStatus    PromotionStatus @default(PENDING)
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  term    Term    @relation(fields: [termId], references: [id])
+
+  @@unique([studentId, termId])
+}
+
+// ==========================================
+// TRANSFERS & EXTERNAL RECORDS (Tables 16-17)
+// ==========================================
+
+model ExternalAcademicRecord {
+  id                 String @id @default(uuid())
+  studentId          String
+  previousSchoolName String
+  gradeLevel         Int // Grade completed elsewhere (e.g., Grade 9)
+  subjectName        String
+  creditsEarned      Float
+  letterGrade        String
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model StudentTransfer {
+  id                String       @id @default(uuid())
+  studentId         String
+  transferType      TransferType
+  destinationSchool String?
+  reason            String?
+  transferDate      DateTime     @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model TeacherTransfer {
+  id                String   @id @default(uuid())
+  teacherId         String
+  destinationSchool String
+  reason            String?
+  handoverNotes     String?
+  transferDate      DateTime @default(now())
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+}
