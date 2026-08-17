@@ -62,8 +62,10 @@ export class UsersService {
           create: {
             firstName: dto.firstName,
             lastName: dto.lastName,
+         
             admissionNumber: dto.admissionNumber, // Phone property safely removed
             currentGradeLevel: dto.currentGradeLevel,
+               gender: dto.gender,
             ...(dto.currentStream && { currentStream: dto.currentStream }),
             ...(dto.dateOfBirth && { dateOfBirth: new Date(dto.dateOfBirth) }),
             ...(dto.sectionId && { section: { connect: { id: dto.sectionId } } }),

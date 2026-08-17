@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsInt, IsEnum, IsDateString } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsInt, IsEnum, IsDateString, IsIn } from 'class-validator'; // <-- Added IsIn
 import { Stream } from '@prisma/client';
 
 export class CreateTeacherDto {
@@ -25,7 +25,7 @@ export class CreateStudentDto {
   email: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   password: string;
 
   @IsString()
@@ -33,6 +33,10 @@ export class CreateStudentDto {
 
   @IsString()
   lastName: string;
+
+  @IsString()
+  @IsIn(['MALE', 'FEMALE']) // <-- Added this block
+  gender: string;           // <-- Added gender
 
   @IsString()
   admissionNumber: string;
@@ -66,7 +70,7 @@ export class CreateParentDto {
   email: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   password: string;
 
   @IsString()

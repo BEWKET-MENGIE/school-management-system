@@ -123,30 +123,30 @@ model Teacher {
 
 model Student {
   id                String        @id @default(uuid())
-  userId            String        @unique
+  userId            String        @unique // Links to User account
   user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   firstName         String
   lastName          String
+  gender            String
   admissionNumber   String        @unique
-  currentGradeLevel Int // Current grade (9, 10, 11, or 12)
+  currentGradeLevel Int           // Current grade (9, 10, 11, or 12)
   currentStream     Stream        @default(NONE) // Stream for Grades 11-12
   status            StudentStatus @default(ACTIVE)
   dateOfBirth       DateTime?
 
-  sectionId String?
-  section   ClassSection? @relation(fields: [sectionId], references: [id])
+  sectionId         String?
+  section           ClassSection? @relation(fields: [sectionId], references: [id])
 
-  enrollments     StudentEnrollment[] // Full yearly progression history
-  parents         StudentParent[]
-  attendanceLogs  AttendanceLog[]
-  grades          Grade[]
-  termSummaries   StudentTermSummary[]
-  externalRecords ExternalAcademicRecord[]
-  transfers       StudentTransfer[]
+  enrollments       StudentEnrollment[] 
+  parents           StudentParent[]
+  attendanceLogs    AttendanceLog[]
+  grades            Grade[]
+  termSummaries     StudentTermSummary[]
+  externalRecords   ExternalAcademicRecord[]
+  transfers         StudentTransfer[]
 
   @@index([currentGradeLevel, status])
 }
-
 model Parent {
   id        String @id @default(uuid())
   userId    String @unique
