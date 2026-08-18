@@ -1,63 +1,98 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { AcademicsService } from './academics.service';
-import { CreateSectionDto } from './dto/create-academic.dto';
+import { CreateTeacherSubjectClassDto } from './dto/assign-teacher-subject.dto';
 import { CreateSubjectDto } from './dto/create-subject.dto';
-import { AssignTeacherSubjectDto } from './dto/assign-teacher-subject.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { Controller, Post, Get, Body } from '@nestjs/common';
+import { CreateAssessmentDto } from './dto/create-assessment.dto';
+import { AcademicsService } from './academics.service';
+import { CreateAttendanceDto } from './dto/create-attendance.dto';
+import { CreateTermDto } from './dto/create-term.dto';
+import { CreateClassSectionDto } from './dto/create-class-section.dto';
+import { CreateAcademicYearDto } from './dto/create-academic-year.dto';
 
 @Controller('academics')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class AcademicsController {
   constructor(private readonly academicsService: AcademicsService) {}
 
-  // ==================== SECTIONS ENDPOINTS ====================
+  // --- Academic Year Endpoints ---
+  @Post('years')
+  async createAcademicYear(@Body() dto: CreateAcademicYearDto) {
+    return this.academicsService.createAcademicYear(dto);
+  }
 
+  @Get('years')
+  async findAllAcademicYears() {
+    return this.academicsService.findAllAcademicYears();
+  }
+
+  // --- Attendance Endpoints ---
+  @Post('attendance')
+  async recordAttendance(@Body() dto: CreateAttendanceDto) {
+    return this.academicsService.recordAttendance(dto);
+  }
+
+  @Get('attendance')
+  async findAllAttendance() {
+    return this.academicsService.findAllAttendance();
+  }
+
+  // --- Term Endpoints ---
+  @Post('terms')
+  async createTerm(@Body() dto: CreateTermDto) {
+    return this.academicsService.createTerm(dto);
+  }
+
+  @Get('terms')
+  async findAllTerms() {
+    return this.academicsService.findAllTerms();
+  }
+
+  // --- Class Sections Endpoints ---
   @Post('sections')
-  @Roles(UserRole.ADMIN)
-  createSection(@Body() dto: CreateSectionDto) {
-    return this.academicsService.createSection(dto);
+  async createClassSection(@Body() dto: CreateClassSectionDto) {
+    return this.academicsService.createClassSection(dto);
   }
 
   @Get('sections')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT)
-  findAllSections(@Query('gradeLevel') gradeLevel?: number) {
-    return this.academicsService.findAllSections(gradeLevel);
+  async findAllClassSections() {
+    return this.academicsService.findAllClassSections();
   }
 
-  @Get('sections/:id')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
-  findOneSection(@Param('id') id: string) {
-    return this.academicsService.findOneSection(id);
+  // --- Grades Endpoints ---
+  @Post('grades')
+  async recordGrade(
+    @Body() dto: { studentId: string; assessmentId: string; scoreObtained: number; remarks?: string }
+  ) {
+    return this.academicsService.recordGrade(dto);
   }
 
-  // ==================== SUBJECTS ENDPOINTS ====================
+  // --- Assessments Endpoints ---
+  @Post('assessments')
+  async createAssessment(@Body() dto: CreateAssessmentDto) {
+    return this.academicsService.createAssessment(dto);
+  }
 
+  @Get('assessments')
+  async findAllAssessments() {
+    return this.academicsService.findAllAssessments();
+  }
+  // --- Subjects Endpoints ---
   @Post('subjects')
-  @Roles(UserRole.ADMIN)
-  createSubject(@Body() dto: CreateSubjectDto) {
+  async createSubject(@Body() dto: CreateSubjectDto) {
     return this.academicsService.createSubject(dto);
   }
 
   @Get('subjects')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT)
-  findAllSubjects(@Query('gradeLevel') gradeLevel?: number) {
-    return this.academicsService.findAllSubjects(gradeLevel);
+  async findAllSubjects() {
+    return this.academicsService.findAllSubjects();
   }
 
-  // ==================== TEACHER ASSIGNMENTS ENDPOINTS ====================
-
-  @Post('teacher-assignments')
-  @Roles(UserRole.ADMIN)
-  assignTeacherToSubjectClass(@Body() dto: AssignTeacherSubjectDto) {
-    return this.academicsService.assignTeacherToSubjectClass(dto);
+  // --- Teacher Subject Classes Endpoints ---
+  @Post('teacher-classes')
+  async createTeacherSubjectClass(@Body() dto: CreateTeacherSubjectClassDto) {
+    return this.academicsService.createTeacherSubjectClass(dto);
   }
 
-  @Get('teacher-assignments')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
-  findAllTeacherAssignments() {
-    return this.academicsService.findAllTeacherAssignments();
+  @Get('teacher-classes')
+  async findAllTeacherSubjectClasses() {
+    return this.academicsService.findAllTeacherSubjectClasses();
   }
 }

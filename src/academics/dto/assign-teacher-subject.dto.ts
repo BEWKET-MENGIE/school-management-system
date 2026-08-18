@@ -1,20 +1,19 @@
-// src/academics/dto/assign-teacher-subject.dto.ts
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
-export class AssignTeacherSubjectDto {
-  @IsString()
+export class CreateTeacherSubjectClassDto {
   @IsNotEmpty()
+  @IsString()
   teacherId: string;
 
-  @IsString()
   @IsNotEmpty()
+  @IsString()
   subjectId: string;
 
-  @IsString()
   @IsNotEmpty()
+  @IsString()
   classSectionId: string;
 
-  @IsString()
   @IsNotEmpty()
-  academicYearId: string; // <--- Add this field
+  @IsString()
+  academicYearId: string;
 }

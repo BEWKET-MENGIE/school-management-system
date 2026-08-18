@@ -1,98 +1,47 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateSectionDto } from './dto/create-academic.dto';
-import { CreateSubjectDto } from './dto/create-subject.dto';
-import { AssignTeacherSubjectDto } from './dto/assign-teacher-subject.dto';
-import { Stream } from '@prisma/client';
+import { CreateAttendanceDto } from './dto/create-attendance.dto';
+import { CreateTermDto } from './dto/create-term.dto';
+import { AssessmentType } from '@prisma/client';
 
 @Injectable()
 export class AcademicsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ==================== SECTIONS ====================
-
-  async createSection(dto: CreateSectionDto) {
-    if ((dto.gradeLevel === 9 || dto.gradeLevel === 10) && dto.stream !== Stream.NONE) {
-      throw new BadRequestException(`Grades 9 and 10 must have their stream set to NONE.`);
-    }
-
-    if ((dto.gradeLevel === 11 || dto.gradeLevel === 12) && dto.stream === Stream.NONE) {
-      throw new BadRequestException(`Grades 11 and 12 must be assigned to either NATURAL_SCIENCE or SOCIAL_SCIENCE.`);
-    }
-
-    const existing = await this.prisma.classSection.findUnique({
-      where: {
-        gradeLevel_sectionName: {
-          gradeLevel: dto.gradeLevel,
-          sectionName: dto.sectionName,
-        },
-      },
-    });
-
-    if (existing) {
-      throw new ConflictException(`Section "${dto.sectionName}" for Grade ${dto.gradeLevel} already exists.`);
-    }
-
-    return this.prisma.classSection.create({
+  // --- ACADEMIC YEARS ---
+  async createAcademicYear(dto: { yearName: string; startDate: string; endDate: string; isCurrent?: boolean }) {
+    return this.prisma.academicYear.create({
       data: {
-        sectionName: dto.sectionName,
-        gradeLevel: dto.gradeLevel,
-      },
-      include: {
-        _count: {
-          select: { students: true },
-        },
+        yearName: dto.yearName,
+        startDate: new Date(dto.startDate),
+        endDate: new Date(dto.endDate),
+        isCurrent: dto.isCurrent ?? false,
       },
     });
   }
 
-  async findAllSections(gradeLevel?: number) {
-    return this.prisma.classSection.findMany({
-      where: gradeLevel ? { gradeLevel: Number(gradeLevel) } : undefined,
-      include: {
-        _count: {
-          select: { students: true },
-        },
-      },
-      orderBy: [{ gradeLevel: 'asc' }, { sectionName: 'asc' }],
-    });
+  async findAllAcademicYears() {
+    return this.prisma.academicYear.findMany();
   }
 
-  async findOneSection(id: string) {
-    const section = await this.prisma.classSection.findUnique({
-      where: { id },
-      include: {
-        students: {
-          select: {
-            id: true,
-            admissionNumber: true,
-            firstName: true,
-            lastName: true,
-            currentStream: true,
-            status: true,
-          },
-        },
-      },
-    });
+  // --- TERMS ---
+  // async createTerm(dto: CreateTermDto) {
+  //   return this.prisma.term.create({
+  //     data: {
+  //       termName: dto.termName,
+  //       academicYearId: dto.academicYearId,
+  //       startDate: new Date(dto.startDate),
+  //       endDate: new Date(dto.endDate),
+  //     },
+  //   });
+  // }
 
-    if (!section) {
-      throw new NotFoundException(`Class section with ID "${id}" not found.`);
-    }
-
-    return section;
+  async findAllTerms() {
+    return this.prisma.term.findMany();
   }
 
-  // ==================== SUBJECTS ====================
-
-  async createSubject(dto: CreateSubjectDto) {
-    const existing = await this.prisma.subject.findUnique({
-      where: { code: dto.code },
-    });
-
-    if (existing) {
-      throw new ConflictException(`Subject code "${dto.code}" already exists.`);
-    }
-
+  // --- SUBJECTS ---
+  async createSubject(dto: { name: string; code: string; gradeLevel: number }) {
     return this.prisma.subject.create({
       data: {
         name: dto.name,
@@ -102,71 +51,12 @@ export class AcademicsService {
     });
   }
 
-  async findAllSubjects(gradeLevel?: number) {
-    return this.prisma.subject.findMany({
-      where: gradeLevel ? { gradeLevel: Number(gradeLevel) } : undefined,
-      orderBy: [{ gradeLevel: 'asc' }, { name: 'asc' }],
-    });
+  async findAllSubjects() {
+    return this.prisma.subject.findMany();
   }
 
-  // ==================== TEACHER ASSIGNMENTS ====================
-
-  async assignTeacherToSubjectClass(dto: AssignTeacherSubjectDto) {
-    console.log('--- DEBUGGING TEACHER ASSIGNMENT ---');
-    console.log('Received DTO:', dto);
-
-    // Print all records in database to verify active connection file
-    const allTeachers = await this.prisma.teacher.findMany();
-    const allSubjects = await this.prisma.subject.findMany();
-    const allSections = await this.prisma.classSection.findMany();
-    const allAcademicYears = await this.prisma.academicYear.findMany();
-
-    console.log('Available Teachers:', allTeachers.map(t => ({ id: t.id, name: `${t.firstName} ${t.lastName}` })));
-    console.log('Available Subjects:', allSubjects.map(s => ({ id: s.id, code: s.code })));
-    console.log('Available Sections:', allSections.map(sec => ({ id: sec.id, name: sec.sectionName })));
-    console.log('Available Academic Years:', allAcademicYears.map(ay => ({ id: ay.id })));
-
-    const teacher = await this.prisma.teacher.findUnique({
-      where: { id: dto.teacherId },
-    });
-    if (!teacher) {
-      throw new NotFoundException(`Teacher with ID "${dto.teacherId}" not found.`);
-    }
-
-    const subject = await this.prisma.subject.findUnique({
-      where: { id: dto.subjectId },
-    });
-    if (!subject) {
-      throw new NotFoundException(`Subject with ID "${dto.subjectId}" not found.`);
-    }
-
-    const section = await this.prisma.classSection.findUnique({
-      where: { id: dto.classSectionId },
-    });
-    if (!section) {
-      throw new NotFoundException(`Class section with ID "${dto.classSectionId}" not found.`);
-    }
-
-    const academicYear = await this.prisma.academicYear.findUnique({
-      where: { id: dto.academicYearId },
-    });
-    if (!academicYear) {
-      throw new NotFoundException(`Academic year with ID "${dto.academicYearId}" not found.`);
-    }
-
-    const existingAssignment = await this.prisma.teacherSubjectClass.findFirst({
-      where: {
-        teacherId: dto.teacherId,
-        subjectId: dto.subjectId,
-        classSectionId: dto.classSectionId,
-        academicYearId: dto.academicYearId,
-      },
-    });
-
-    if (existingAssignment) {
-      throw new ConflictException(`This teacher is already assigned to this subject for this section in this academic year.`);
-    }
-
+  // --- TEACHER SUBJECT CLASSES ---
+  async createTeacherSubjectClass(dto: { teacherId: string; subjectId: string; classSectionId: string; academicYearId: string }) {
     return this.prisma.teacherSubjectClass.create({
       data: {
         teacherId: dto.teacherId,
@@ -174,22 +64,145 @@ export class AcademicsService {
         classSectionId: dto.classSectionId,
         academicYearId: dto.academicYearId,
       },
+    });
+  }
+
+  async findAllTeacherSubjectClasses() {
+    return this.prisma.teacherSubjectClass.findMany({
       include: {
-        teacher: { select: { firstName: true, lastName: true } },
-        subject: { select: { name: true, code: true } },
-        classSection: { select: { sectionName: true, gradeLevel: true } },
-        academicYear: true,
+        teacher: true,
+        subject: true,
+        classSection: true,
       },
     });
   }
 
-  async findAllTeacherAssignments() {
-    return this.prisma.teacherSubjectClass.findMany({
+  // --- ASSESSMENTS ---
+  async createAssessment(dto: { 
+    teacherSubjectClassId: string; 
+    termId: string; 
+    title: string; 
+    type: AssessmentType; 
+    weightPercentage: number; 
+    maxScore?: number 
+  }) {
+    return this.prisma.assessment.create({
+      data: {
+        teacherSubjectClassId: dto.teacherSubjectClassId,
+        termId: dto.termId,
+        title: dto.title,
+        type: dto.type,
+        weightPercentage: dto.weightPercentage,
+        maxScore: dto.maxScore ?? 100.0,
+      },
+    });
+  }
+
+  async findAllAssessments() {
+    return this.prisma.assessment.findMany();
+  }
+
+  // --- CLASS SECTIONS ---
+  async createClassSection(dto: { sectionName: string; gradeLevel: number }) {
+    return this.prisma.classSection.create({
+      data: {
+        sectionName: dto.sectionName,
+        gradeLevel: dto.gradeLevel,
+      },
+    });
+  }
+
+  async findAllClassSections() {
+    return this.prisma.classSection.findMany({
+      include: { students: true },
+    });
+  }
+
+  // --- GRADES ---
+  async recordGrade(dto: { studentId: string; assessmentId: string; scoreObtained: number; remarks?: string }) {
+    const student = await this.prisma.student.findUnique({ where: { id: dto.studentId } });
+    if (!student) {
+      throw new NotFoundException(`Student with ID ${dto.studentId} not found`);
+    }
+
+    return this.prisma.grade.create({
+      data: {
+        studentId: dto.studentId,
+        assessmentId: dto.assessmentId,
+        scoreObtained: dto.scoreObtained,
+        remarks: dto.remarks,
+      },
+    });
+  }
+
+  // --- ATTENDANCE ---
+  async recordAttendance(dto: CreateAttendanceDto) {
+    const student = await this.prisma.student.findUnique({
+      where: { id: dto.studentId },
+    });
+
+    if (!student) {
+      throw new NotFoundException(`Student with ID ${dto.studentId} not found`);
+    }
+
+    return this.prisma.attendanceLog.create({
+      data: {
+        studentId: dto.studentId,
+        status: dto.status,
+        type: dto.type,
+        termId: dto.termId,
+        date: dto.date ? new Date(dto.date) : undefined,
+      },
+    });
+  }
+
+  async findAllAttendance() {
+    return this.prisma.attendanceLog.findMany({
       include: {
-        teacher: { select: { firstName: true, lastName: true } },
-        subject: { select: { name: true, code: true } },
-        classSection: { select: { sectionName: true, gradeLevel: true } },
-        academicYear: true,
+        student: true,
+      },
+    });
+  }
+
+  async findAttendanceById(id: string) {
+    const log = await this.prisma.attendanceLog.findUnique({
+      where: { id },
+      include: { student: true },
+    });
+
+    if (!log) {
+      throw new NotFoundException(`Attendance log with ID ${id} not found`);
+    }
+
+    return log;
+  }
+
+  async updateAttendance(id: string, dto: Partial<CreateAttendanceDto>) {
+    await this.findAttendanceById(id);
+
+    return this.prisma.attendanceLog.update({
+      where: { id },
+      data: {
+        ...dto,
+        date: dto.date ? new Date(dto.date) : undefined,
+      },
+    });
+  }
+
+  async removeAttendance(id: string) {
+    await this.findAttendanceById(id);
+
+    return this.prisma.attendanceLog.delete({
+      where: { id },
+    });
+  }
+  async createTerm(dto: any) {
+    return this.prisma.term.create({
+      data: {
+        termName: dto.termName || dto.name, 
+        academicYearId: dto.academicYearId,
+        startDate: new Date(dto.startDate),
+        endDate: new Date(dto.endDate),
       },
     });
   }

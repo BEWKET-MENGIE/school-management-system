@@ -1,15 +1,15 @@
-// src/academics/dto/create-subject.dto.ts
-import { IsString, IsInt, Min, Max } from 'class-validator';
+import { IsNotEmpty, IsString, IsInt } from 'class-validator';
 
 export class CreateSubjectDto {
+  @IsNotEmpty()
   @IsString()
   name: string; // e.g., "Mathematics Grade 10"
 
+  @IsNotEmpty()
   @IsString()
   code: string; // e.g., "MATH-10"
 
+  @IsNotEmpty()
   @IsInt()
-  @Min(9)
-  @Max(12)
-  gradeLevel: number; // 9, 10, 11, or 12
+  gradeLevel: number; // e.g., 10
 }
