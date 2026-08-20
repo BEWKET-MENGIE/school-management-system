@@ -24,17 +24,6 @@ export class AcademicsService {
     return this.prisma.academicYear.findMany();
   }
 
-  // --- TERMS ---
-  // async createTerm(dto: CreateTermDto) {
-  //   return this.prisma.term.create({
-  //     data: {
-  //       termName: dto.termName,
-  //       academicYearId: dto.academicYearId,
-  //       startDate: new Date(dto.startDate),
-  //       endDate: new Date(dto.endDate),
-  //     },
-  //   });
-  // }
 
   async findAllTerms() {
     return this.prisma.term.findMany();

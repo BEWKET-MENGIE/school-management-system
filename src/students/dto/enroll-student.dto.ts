@@ -1,11 +1,6 @@
-import { IsString, IsNotEmpty, IsInt, IsEnum, IsOptional, Min, Max, IsIn } from 'class-validator';
-import { Stream } from '@prisma/client';
+import { IsString, IsNotEmpty, IsOptional, IsInt, IsDateString } from 'class-validator';
 
 export class EnrollStudentDto {
-  @IsString()
-  @IsNotEmpty()
-  userId: string; 
-
   @IsString()
   @IsNotEmpty()
   admissionNumber: string;
@@ -19,19 +14,24 @@ export class EnrollStudentDto {
   lastName: string;
 
   @IsString()
-  @IsIn(['MALE', 'FEMALE'])
+  @IsNotEmpty()
   gender: string;
 
   @IsInt()
-  @Min(9)
-  @Max(12)
-  currentGradeLevel: number; 
+  currentGradeLevel: number;
 
-  @IsEnum(Stream)
   @IsOptional()
-  currentStream?: Stream;
+  currentStream?: any;
+
+  @IsDateString()
+  @IsOptional()
+  dateOfBirth?: string;
 
   @IsString()
   @IsNotEmpty()
-  sectionId: string; 
+  userId: string;
+
+  @IsString()
+  @IsOptional()
+  sectionId?: string;
 }

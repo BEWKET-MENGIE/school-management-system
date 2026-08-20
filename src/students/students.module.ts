@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { StudentsController } from './students.controller';
 import { PrismaModule } from '../prisma/prisma.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [PrismaModule], // Required to use PrismaService inside StudentsService
+  imports: [PrismaModule, NotificationsModule],
   controllers: [StudentsController],
   providers: [StudentsService],
-  exports: [StudentsService], // Exports it just in case other modules need to look up students later
+  exports: [StudentsService],
 })
 export class StudentsModule {}

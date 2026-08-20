@@ -1,70 +1,115 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { EnrollStudentDto } from './dto/enroll-student.dto';
-import { Stream } from '@prisma/client';
 
 @Injectable()
 export class StudentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async enrollStudent(dto: EnrollStudentDto) {
-    // 1. Check if admission number is unique
-    const existingStudent = await this.prisma.student.findUnique({
-      where: { admissionNumber: dto.admissionNumber },
-    });
-
-    if (existingStudent) {
-      throw new ConflictException(`Student with admission number "${dto.admissionNumber}" already exists.`);
+    if (dto.admissionNumber) {
+      const existing = await this.prisma.student.findUnique({
+        where: { admissionNumber: dto.admissionNumber },
+      });
+      if (existing) {
+        throw new ConflictException(`Admission number '${dto.admissionNumber}' is taken`);
+      }
     }
 
-    // 2. Validate Class Section exists
-    const section = await this.prisma.classSection.findUnique({
-      where: { id: dto.sectionId },
-    });
-
-    if (!section) {
-      throw new NotFoundException(`Class section with ID "${dto.sectionId}" not found.`);
-    }
-
-    // 3. Validate Stream Rules
-    const stream = dto.currentStream || Stream.NONE;
-
-    if ((dto.currentGradeLevel === 9 || dto.currentGradeLevel === 10) && stream !== Stream.NONE) {
-      throw new BadRequestException(`Grades 9 and 10 must have their stream set to NONE.`);
-    }
-
-    if ((dto.currentGradeLevel === 11 || dto.currentGradeLevel === 12) && stream === Stream.NONE) {
-      throw new BadRequestException(`Grades 11 and 12 must be assigned to either NATURAL_SCIENCE or SOCIAL_SCIENCE.`);
-    }
-
-    // 4. Create Student Record
-    return this.prisma.student.create({
+    const student = await this.prisma.student.create({
       data: {
-        userId: dto.userId,
         admissionNumber: dto.admissionNumber,
         firstName: dto.firstName,
         lastName: dto.lastName,
         gender: dto.gender,
         currentGradeLevel: dto.currentGradeLevel,
-        currentStream: stream,
+        currentStream: dto.currentStream,
+        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+        userId: dto.userId,
         sectionId: dto.sectionId,
-        
       },
-      include: {
-        section: { // Matched to relation name in schema
-          select: { sectionName: true, gradeLevel: true },
-        },
+    });
+
+    try {
+      // Sending a placeholder email for now to ensure compilation
+      await this.notificationsService.sendEnrollmentWelcome({
+        email: 'student@example.com', 
+        name: `${student.firstName} ${student.lastName}`,
+        admissionNumber: student.admissionNumber,
+      });
+    } catch (error) {
+      console.error('Notification failed', error);
+    }
+
+    return student;
+  }
+
+  async findAll(params?: { sectionId?: string; search?: string }) {
+    const { sectionId, search } = params || {};
+    return this.prisma.student.findMany({
+      where: {
+        sectionId: sectionId || undefined,
+        OR: search
+          ? [
+              { admissionNumber: { contains: search, mode: 'insensitive' } },
+              { firstName: { contains: search, mode: 'insensitive' } },
+              { lastName: { contains: search, mode: 'insensitive' } },
+            ]
+          : undefined,
       },
+      orderBy: { id: 'desc' },
     });
   }
 
-  async findAllStudents(sectionId?: string) {
-    return this.prisma.student.findMany({
-      where: sectionId ? { sectionId: sectionId } : undefined,
-      include: {
-        section: { select: { sectionName: true, gradeLevel: true } },
+  async findOne(id: string) {
+    const student = await this.prisma.student.findUnique({ where: { id } });
+    if (!student) throw new NotFoundException(`Student not found`);
+    return student;
+  }
+
+  // --- HIGH SCHOOL REGISTRATION STATS (GRADES 9-12) ---
+  async getRegistrationStats() {
+    // 1. Fetch all students whose grade level is between 9 and 12
+    const students = await this.prisma.student.findMany({
+      where: {
+        currentGradeLevel: {
+          in: [9, 10, 11, 12],
+        },
       },
-      orderBy: [{ currentGradeLevel: 'asc' }, { lastName: 'asc' }],
+      select: {
+        currentGradeLevel: true,
+      },
     });
+
+    // 2. Initialize counters
+    let totalHighSchoolStudents = students.length;
+    const gradeCounts: Record<number, number> = {
+      9: 0,
+      10: 0,
+      11: 0,
+      12: 0,
+    };
+
+    // 3. Count students per grade level
+    students.forEach((student) => {
+      if (gradeCounts[student.currentGradeLevel] !== undefined) {
+        gradeCounts[student.currentGradeLevel] += 1;
+      }
+    });
+
+    // 4. Return total and a structured array for your frontend charts
+    return {
+      totalHighSchoolStudents,
+      chartData: [
+        { name: 'Grade 9', students: gradeCounts[9] },
+        { name: 'Grade 10', students: gradeCounts[10] },
+        { name: 'Grade 11', students: gradeCounts[11] },
+        { name: 'Grade 12', students: gradeCounts[12] },
+      ],
+    };
   }
 }
