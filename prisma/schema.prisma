@@ -232,12 +232,16 @@ model StudentEnrollment {
 }
 
 model Subject {
-  id         String @id @default(uuid())
-  name       String // e.g., "Mathematics Grade 10"
-  code       String @unique // e.g., "MATH-10"
-  gradeLevel Int // 9, 10, 11, or 12
+  id          String  @id @default(uuid())
+  name        String // e.g., "Mathematics", "Biology"
+  code        String  @unique // e.g., "MATH-09", "BIO-10"
+  description String?
 
-  teacherAssignments TeacherSubjectClass[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Add this opposite relation field to satisfy Prisma:
+  teacherSubjectClasses TeacherSubjectClass[]
 }
 
 model TeacherSubjectClass {

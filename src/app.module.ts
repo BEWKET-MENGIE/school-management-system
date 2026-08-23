@@ -7,6 +7,7 @@ import { AcademicsModule } from './academics/academics.module';
 import { StudentsModule } from './students/students.module'; // <-- Import this
 import { DepartmentsModule } from './departments/departments.module';
 import { ClassSectionsModule } from './class-sections/class-sections.module';
+import { SubjectsModule } from './subjects/subjects.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { ClassSectionsModule } from './class-sections/class-sections.module';
     AcademicsModule,
     StudentsModule,
     DepartmentsModule,
-    ClassSectionsModule, // <-- Add it here
+    ClassSectionsModule,
+    SubjectsModule, // <-- Add it here
   ],
 })
 export class AppModule {}

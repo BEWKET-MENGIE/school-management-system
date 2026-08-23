@@ -1,37 +1,34 @@
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import * as bcrypt from 'bcrypt';
-import 'dotenv/config';
+import { PrismaClient, UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt'; 
+// Note: if you use 'bcryptjs', change the import above to: import * as bcrypt from 'bcryptjs';
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function main() {
-  const adminEmail = 'admin@school.com';
+  // 1. Hash the password exactly how NestJS expects it
+  const hashedPassword = await bcrypt.hash('admin123', 10);
 
-  const existingAdmin = await prisma.user.findUnique({
-    where: { email: adminEmail },
-  });
-
-  if (!existingAdmin) {
-    const hashedPassword = await bcrypt.hash('Admin@123456', 10);
-
-    await prisma.user.create({
-      data: {
-        email: adminEmail,
-        passwordHash: hashedPassword,
-        role: 'ADMIN',
-        admin: {
-          create: {
-            firstName: 'Super',
-            lastName: 'Admin',
-            phone: '+1234567890',
-          },
+  // 2. Create the user and the linked Admin profile
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@school.com' },
+    update: {
+      passwordHash: hashedPassword, // Updates the password if the user already exists
+    },
+    create: {
+      email: 'admin@school.com',
+      passwordHash: hashedPassword,
+      role: UserRole.ADMIN,
+      isActive: true,
+      admin: {
+        create: {
+          firstName: 'System',
+          lastName: 'Admin',
         },
       },
-    });
-    console.log('✅ Super Admin account created: admin@school.com');
-  }
+    },
+  });
+
+  console.log('✅ Admin user ready:', adminUser.email);
 }
 
 main()
