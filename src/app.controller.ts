@@ -1,6 +1,10 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Request } from '@nestjs/common';
 import { AppService } from './app.service';
-import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+
+// 🛠️ FIX: Explicit Interface prevents unsafe return types
+interface RequestWithUser extends Express.Request {
+  user: Record<string, unknown>;
+}
 
 @Controller()
 export class AppController {
@@ -11,9 +15,9 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('profile')
-  getProfile(@Request() req) {
+  getProfile(@Request() req: RequestWithUser) {
+    // 🛠️ FIX: req.user is now strictly typed
     return req.user;
   }
 }

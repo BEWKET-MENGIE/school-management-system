@@ -1,6 +1,18 @@
-import { Controller, Post, Get, Body, Query, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Query,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateTeacherDto, CreateStudentDto, CreateParentDto } from './dto/create-user.dto';
+import {
+  CreateTeacherDto,
+  CreateStudentDto,
+  CreateParentDto,
+} from './dto/create-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';

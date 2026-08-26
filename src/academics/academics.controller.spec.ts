@@ -52,10 +52,15 @@ describe('AcademicsService', () => {
         date: '2026-08-17T15:00:00.000Z',
       };
 
-      mockPrismaService.student.findUnique.mockResolvedValue({ id: 'student-1' });
-      mockPrismaService.attendanceLog.create.mockResolvedValue({ id: 'log-1', ...dto });
+      mockPrismaService.student.findUnique.mockResolvedValue({
+        id: 'student-1',
+      });
+      mockPrismaService.attendanceLog.create.mockResolvedValue({
+        id: 'log-1',
+        ...dto,
+      });
 
-      const result = await service.recordAttendance(dto as any);
+      const result = await service.recordAttendance(dto);
       expect(result).toBeDefined();
       expect(mockPrismaService.student.findUnique).toHaveBeenCalledWith({
         where: { id: 'student-1' },

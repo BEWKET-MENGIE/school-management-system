@@ -1,19 +1,19 @@
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
+export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
-    private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'super-secret-key',
+      secretOrKey: configService.get<string>('JWT_SECRET') || 'secretKey',
     });
   }
 
@@ -22,10 +22,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
     });
 
-    if (!user || !user.isActive) {
+    if (!user) {
       throw new UnauthorizedException('User no longer exists or is inactive.');
     }
 
-    return user; // This attaches the user object to the request (req.user)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...sanitizedUser } = user;
+
+    return sanitizedUser;
   }
 }

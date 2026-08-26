@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateClassSectionDto } from './dto/create-class-section.dto';
 import { UpdateClassSectionDto } from './dto/update-class-section.dto';
@@ -18,7 +22,9 @@ export class ClassSectionsService {
     });
 
     if (existing) {
-      throw new ConflictException(`Section ${dto.sectionName} for Grade ${dto.gradeLevel} already exists.`);
+      throw new ConflictException(
+        `Section ${dto.sectionName} for Grade ${dto.gradeLevel} already exists.`,
+      );
     }
 
     return this.prisma.classSection.create({ data: dto });
@@ -26,16 +32,16 @@ export class ClassSectionsService {
 
   async findAll() {
     return this.prisma.classSection.findMany({
-      orderBy: [
-        { gradeLevel: 'asc' },
-        { sectionName: 'asc' },
-      ],
+      orderBy: [{ gradeLevel: 'asc' }, { sectionName: 'asc' }],
     });
   }
 
   async findOne(id: string) {
-    const section = await this.prisma.classSection.findUnique({ where: { id } });
-    if (!section) throw new NotFoundException(`Class Section with ID ${id} not found`);
+    const section = await this.prisma.classSection.findUnique({
+      where: { id },
+    });
+    if (!section)
+      throw new NotFoundException(`Class Section with ID ${id} not found`);
     return section;
   }
 

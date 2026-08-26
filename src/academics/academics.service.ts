@@ -8,8 +8,13 @@ import { AssessmentType } from '@prisma/client';
 export class AcademicsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // --- ACADEMIC YEARS ---
-  async createAcademicYear(dto: { yearName: string; startDate: string; endDate: string; isCurrent?: boolean }) {
+  // --- ACADEMIC YEARS & TERMS ---
+  async createAcademicYear(dto: {
+    yearName: string;
+    startDate: string;
+    endDate: string;
+    isCurrent?: boolean;
+  }) {
     return this.prisma.academicYear.create({
       data: {
         yearName: dto.yearName,
@@ -24,18 +29,27 @@ export class AcademicsService {
     return this.prisma.academicYear.findMany();
   }
 
+  async createTerm(dto: CreateTermDto) {
+    return this.prisma.term.create({
+      data: {
+        termName: dto.termName || dto.name || '',
+        academicYearId: dto.academicYearId,
+        startDate: new Date(dto.startDate),
+        endDate: new Date(dto.endDate),
+      },
+    });
+  }
 
   async findAllTerms() {
     return this.prisma.term.findMany();
   }
 
   // --- SUBJECTS ---
-  async createSubject(dto: { name: string; code: string; gradeLevel: number }) {
+  async createSubject(dto: { name: string; code: string }) {
     return this.prisma.subject.create({
       data: {
         name: dto.name,
         code: dto.code,
-        gradeLevel: dto.gradeLevel,
       },
     });
   }
@@ -44,8 +58,29 @@ export class AcademicsService {
     return this.prisma.subject.findMany();
   }
 
+  // --- CLASS SECTIONS ---
+  async createClassSection(dto: { sectionName: string; gradeLevel: number }) {
+    return this.prisma.classSection.create({
+      data: {
+        sectionName: dto.sectionName,
+        gradeLevel: dto.gradeLevel,
+      },
+    });
+  }
+
+  async findAllClassSections() {
+    return this.prisma.classSection.findMany({
+      include: { students: true },
+    });
+  }
+
   // --- TEACHER SUBJECT CLASSES ---
-  async createTeacherSubjectClass(dto: { teacherId: string; subjectId: string; classSectionId: string; academicYearId: string }) {
+  async createTeacherSubjectClass(dto: {
+    teacherId: string;
+    subjectId: string;
+    classSectionId: string;
+    academicYearId: string;
+  }) {
     return this.prisma.teacherSubjectClass.create({
       data: {
         teacherId: dto.teacherId,
@@ -67,13 +102,13 @@ export class AcademicsService {
   }
 
   // --- ASSESSMENTS ---
-  async createAssessment(dto: { 
-    teacherSubjectClassId: string; 
-    termId: string; 
-    title: string; 
-    type: AssessmentType; 
-    weightPercentage: number; 
-    maxScore?: number 
+  async createAssessment(dto: {
+    teacherSubjectClassId: string;
+    termId: string;
+    title: string;
+    type: AssessmentType;
+    weightPercentage: number;
+    maxScore?: number;
   }) {
     return this.prisma.assessment.create({
       data: {
@@ -91,25 +126,16 @@ export class AcademicsService {
     return this.prisma.assessment.findMany();
   }
 
-  // --- CLASS SECTIONS ---
-  async createClassSection(dto: { sectionName: string; gradeLevel: number }) {
-    return this.prisma.classSection.create({
-      data: {
-        sectionName: dto.sectionName,
-        gradeLevel: dto.gradeLevel,
-      },
-    });
-  }
-
-  async findAllClassSections() {
-    return this.prisma.classSection.findMany({
-      include: { students: true },
-    });
-  }
-
   // --- GRADES ---
-  async recordGrade(dto: { studentId: string; assessmentId: string; scoreObtained: number; remarks?: string }) {
-    const student = await this.prisma.student.findUnique({ where: { id: dto.studentId } });
+  async recordGrade(dto: {
+    studentId: string;
+    assessmentId: string;
+    scoreObtained: number;
+    remarks?: string;
+  }) {
+    const student = await this.prisma.student.findUnique({
+      where: { id: dto.studentId },
+    });
     if (!student) {
       throw new NotFoundException(`Student with ID ${dto.studentId} not found`);
     }
@@ -183,16 +209,6 @@ export class AcademicsService {
 
     return this.prisma.attendanceLog.delete({
       where: { id },
-    });
-  }
-  async createTerm(dto: any) {
-    return this.prisma.term.create({
-      data: {
-        termName: dto.termName || dto.name, 
-        academicYearId: dto.academicYearId,
-        startDate: new Date(dto.startDate),
-        endDate: new Date(dto.endDate),
-      },
     });
   }
 }

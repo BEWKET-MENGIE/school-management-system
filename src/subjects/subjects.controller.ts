@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { SubjectsService } from './subjects.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
@@ -25,7 +34,8 @@ export class SubjectsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) { // Kept as string for UUID compatibility
+  findOne(@Param('id') id: string) {
+    // Kept as string for UUID compatibility
     return this.subjectsService.findOne(id);
   }
 

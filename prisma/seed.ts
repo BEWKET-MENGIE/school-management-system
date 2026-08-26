@@ -1,34 +1,28 @@
-import { PrismaClient, UserRole } from '@prisma/client';
-import * as bcrypt from 'bcrypt'; 
-// Note: if you use 'bcryptjs', change the import above to: import * as bcrypt from 'bcryptjs';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import * as bcrypt from 'bcrypt';
+import 'dotenv/config';
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  // 1. Hash the password exactly how NestJS expects it
+  console.log('Starting database seeding...');
+
+  // Hash the password securely
   const hashedPassword = await bcrypt.hash('admin123', 10);
 
-  // 2. Create the user and the linked Admin profile
-  const adminUser = await prisma.user.upsert({
+  // Create the admin user in the database
+  const admin = await prisma.user.upsert({
     where: { email: 'admin@school.com' },
-    update: {
-      passwordHash: hashedPassword, // Updates the password if the user already exists
-    },
+    update: {},
     create: {
       email: 'admin@school.com',
-      passwordHash: hashedPassword,
-      role: UserRole.ADMIN,
-      isActive: true,
-      admin: {
-        create: {
-          firstName: 'System',
-          lastName: 'Admin',
-        },
-      },
+      password: hashedPassword,
+      role: 'ADMIN', // <-- Add this exact line!
     },
   });
-
-  console.log('✅ Admin user ready:', adminUser.email);
+  console.log(`Successfully seeded admin user: ${admin.email}`);
 }
 
 main()

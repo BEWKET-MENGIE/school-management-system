@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class NotificationsService {
-  async sendEnrollmentWelcome(data: { email: string; name: string; admissionNumber?: string }) {
-    console.log(`[Notification] Welcome email sent to ${data.email} for ${data.name} (Admission: ${data.admissionNumber})`);
-    return true;
+  // 🛠️ FIX: Removed 'async' to fix the @typescript-eslint/require-await error
+  sendEnrollmentWelcome(studentId: string): void {
+    console.log(`Sending welcome email and SMS to student: ${studentId}`);
+    // Future SMS/Email logic goes here
   }
 }

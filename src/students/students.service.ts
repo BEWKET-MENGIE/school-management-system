@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EnrollStudentDto } from './dto/enroll-student.dto';
@@ -16,7 +20,9 @@ export class StudentsService {
         where: { admissionNumber: dto.admissionNumber },
       });
       if (existing) {
-        throw new ConflictException(`Admission number '${dto.admissionNumber}' is taken`);
+        throw new ConflictException(
+          `Admission number '${dto.admissionNumber}' is taken`,
+        );
       }
     }
 
@@ -27,7 +33,6 @@ export class StudentsService {
         lastName: dto.lastName,
         gender: dto.gender,
         currentGradeLevel: dto.currentGradeLevel,
-        currentStream: dto.currentStream,
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
         userId: dto.userId,
         sectionId: dto.sectionId,
@@ -36,11 +41,7 @@ export class StudentsService {
 
     try {
       // Sending a placeholder email for now to ensure compilation
-      await this.notificationsService.sendEnrollmentWelcome({
-        email: 'student@example.com', 
-        name: `${student.firstName} ${student.lastName}`,
-        admissionNumber: student.admissionNumber,
-      });
+      this.notificationsService.sendEnrollmentWelcome('student@example.com');
     } catch (error) {
       console.error('Notification failed', error);
     }
@@ -86,7 +87,7 @@ export class StudentsService {
     });
 
     // 2. Initialize counters
-    let totalHighSchoolStudents = students.length;
+    const totalHighSchoolStudents = students.length;
     const gradeCounts: Record<number, number> = {
       9: 0,
       10: 0,

@@ -1,15 +1,8 @@
-// src/auth/jwt.strategy.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-
-export interface JwtPayload {
-  sub: string;
-  email: string;
-  role: string;
-}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -20,23 +13,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'your_fallback_secret',
+      secretOrKey: configService.get<string>('JWT_SECRET') || 'secretKey',
     });
   }
 
-  async validate(payload: JwtPayload) {
-    // 1. Fetch user from database using payload 'sub' (User ID)
+  async validate(payload: { sub: string; email: string; role: string }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
 
-    // 2. Reject request if user was deleted or does not exist
     if (!user) {
-      throw new UnauthorizedException('User no longer exists');
+      throw new UnauthorizedException('User no longer exists or is inactive.');
     }
 
-    // 3. Exclude sensitive password hash before attaching user to req.user
-    const { passwordHash, ...sanitizedUser } = user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...sanitizedUser } = user;
 
     return sanitizedUser;
   }

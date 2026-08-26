@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { ClassSectionsService } from './class-sections.service';
 import { CreateClassSectionDto } from './dto/create-class-section.dto';
 import { UpdateClassSectionDto } from './dto/update-class-section.dto';
@@ -29,7 +38,10 @@ export class ClassSectionsController {
 
   @Patch(':id')
   @Roles('ADMIN')
-  update(@Param('id') id: string, @Body() updateClassSectionDto: UpdateClassSectionDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateClassSectionDto: UpdateClassSectionDto,
+  ) {
     return this.classSectionsService.update(id, updateClassSectionDto);
   }
 

@@ -1,14 +1,28 @@
-// src/academics/dto/create-term.dto.ts
-import { IsNotEmpty, IsString, IsDateString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsDateString,
+  IsOptional,
+} from 'class-validator';
 
 export class CreateTermDto {
+  @IsOptional()
+  @IsString()
+  termName?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
   @IsNotEmpty()
   @IsString()
-  name: string;
+  academicYearId!: string;
 
+  @IsNotEmpty()
   @IsDateString()
-  startDate: string;
+  startDate!: string;
 
+  @IsNotEmpty()
   @IsDateString()
-  endDate: string;
+  endDate!: string;
 }

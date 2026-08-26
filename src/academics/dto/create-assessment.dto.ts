@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsEnum,
+} from 'class-validator';
 import { AssessmentType } from '@prisma/client';
 
 export class CreateAssessmentDto {

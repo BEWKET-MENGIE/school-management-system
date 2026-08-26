@@ -59,7 +59,13 @@ export class AcademicsController {
   // --- Grades Endpoints ---
   @Post('grades')
   async recordGrade(
-    @Body() dto: { studentId: string; assessmentId: string; scoreObtained: number; remarks?: string }
+    @Body()
+    dto: {
+      studentId: string;
+      assessmentId: string;
+      scoreObtained: number;
+      remarks?: string;
+    },
   ) {
     return this.academicsService.recordGrade(dto);
   }

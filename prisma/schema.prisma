@@ -83,13 +83,13 @@ enum Stream {
 // ==========================================
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  role         UserRole
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      UserRole
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   admin   Admin?
   teacher Teacher?
@@ -236,6 +236,7 @@ model Subject {
   name        String // e.g., "Mathematics", "Biology"
   code        String  @unique // e.g., "MATH-09", "BIO-10"
   description String?
+  gradeLevel  Int
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

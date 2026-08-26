@@ -1,6 +1,14 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateTeacherDto, CreateStudentDto, CreateParentDto } from './dto/create-user.dto';
+import {
+  CreateTeacherDto,
+  CreateStudentDto,
+  CreateParentDto,
+} from './dto/create-user.dto';
 import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
@@ -22,7 +30,7 @@ export class UsersService {
     return this.prisma.user.create({
       data: {
         email: dto.email,
-        passwordHash: hashedPassword,
+        password: hashedPassword,
         role: UserRole.TEACHER,
         teacher: {
           create: {
@@ -56,19 +64,21 @@ export class UsersService {
     return this.prisma.user.create({
       data: {
         email: dto.email,
-        passwordHash: hashedPassword,
+        password: hashedPassword,
         role: UserRole.STUDENT,
         student: {
           create: {
             firstName: dto.firstName,
             lastName: dto.lastName,
-         
+
             admissionNumber: dto.admissionNumber, // Phone property safely removed
             currentGradeLevel: dto.currentGradeLevel,
-               gender: dto.gender,
+            gender: dto.gender,
             ...(dto.currentStream && { currentStream: dto.currentStream }),
             ...(dto.dateOfBirth && { dateOfBirth: new Date(dto.dateOfBirth) }),
-            ...(dto.sectionId && { section: { connect: { id: dto.sectionId } } }),
+            ...(dto.sectionId && {
+              section: { connect: { id: dto.sectionId } },
+            }),
             ...(dto.parentId && {
               parents: {
                 create: {
@@ -104,7 +114,7 @@ export class UsersService {
     return this.prisma.user.create({
       data: {
         email: dto.email,
-        passwordHash: hashedPassword,
+        password: hashedPassword,
         role: UserRole.PARENT,
         parent: {
           create: {

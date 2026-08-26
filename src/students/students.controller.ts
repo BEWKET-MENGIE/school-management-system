@@ -17,7 +17,10 @@ export class StudentsController {
   }
 
   @Get()
-  findAll(@Query('sectionId') sectionId?: string, @Query('search') search?: string) {
+  findAll(
+    @Query('sectionId') sectionId?: string,
+    @Query('search') search?: string,
+  ) {
     return this.studentsService.findAll({ sectionId });
   }
 
