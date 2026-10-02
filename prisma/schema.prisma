@@ -15,6 +15,7 @@ enum UserRole {
   TEACHER
   STUDENT
   PARENT
+  ACCOUNTANT
 }
 
 enum StudentStatus {
@@ -60,6 +61,13 @@ enum AssessmentType {
   PROJECT
 }
 
+enum ExamType {
+  QUIZ
+  ASSIGNMENT
+  MIDTERM
+  FINAL
+}
+
 enum PromotionStatus {
   PROMOTED
   RETAINED
@@ -73,13 +81,34 @@ enum TransferType {
 }
 
 enum Stream {
-  NONE // Used for Grades 9 & 10
-  NATURAL_SCIENCE // Grades 11 & 12
-  SOCIAL_SCIENCE // Grades 11 & 12
+  NONE // Added to match @default(NONE) in StudentEnrollment
+  GENERAL // For Grades 9 and 10
+  NATURAL_SCIENCE // For Grades 11 and 12
+  SOCIAL_SCIENCE // For Grades 11 and 12
+}
+
+enum FeeStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY
+  CHECK
+}
+
+enum ReportType {
+  STUDENT_REPORT_CARD
+  CLASS_MASTER_SHEET
+  FEE_SUMMARY
 }
 
 // ==========================================
-// AUTH & USERS (Tables 1-6)
+// AUTH & USERS
 // ==========================================
 
 model User {
@@ -91,10 +120,12 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  admin   Admin?
-  teacher Teacher?
-  student Student?
-  parent  Parent?
+  admin         Admin?
+  teacher       Teacher?
+  student       Student?
+  parent        Parent?
+  announcements Announcement[]
+  reportLogs    ReportDownloadLog[] // Back-relation for reports
 
   @@index([email])
 }
@@ -109,41 +140,52 @@ model Admin {
 }
 
 model Teacher {
-  id        String        @id @default(uuid())
-  userId    String        @unique
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstName String
-  lastName  String
-  phone     String?
-  status    TeacherStatus @default(ACTIVE)
+  id           String        @id @default(uuid())
+  userId       String        @unique
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName    String
+  lastName     String
+  phone        String?
+  status       TeacherStatus @default(ACTIVE)
+  departmentId String?
+  department   Department?   @relation(fields: [departmentId], references: [id])
 
-  subjectAssignments TeacherSubjectClass[]
-  transfersHistory   TeacherTransfer[]
+  subjectAssignments  TeacherSubjectClass[]
+  transfersHistory    TeacherTransfer[]
+  recordedAttendances Attendance[]          @relation("TeacherRecordedAttendances")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Student {
   id                String        @id @default(uuid())
-  userId            String        @unique // Links to User account
+  userId            String        @unique
   user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   firstName         String
   lastName          String
   gender            String
   admissionNumber   String        @unique
-  currentGradeLevel Int // Current grade (9, 10, 11, or 12)
-  currentStream     Stream        @default(NONE) // Stream for Grades 11-12
+  currentGradeLevel Int // Grades 9, 10, 11, or 12
+  currentStream     Stream        @default(GENERAL)
   status            StudentStatus @default(ACTIVE)
   dateOfBirth       DateTime?
 
   sectionId String?
   section   ClassSection? @relation(fields: [sectionId], references: [id])
 
-  enrollments     StudentEnrollment[]
-  parents         StudentParent[]
-  attendanceLogs  AttendanceLog[]
-  grades          Grade[]
-  termSummaries   StudentTermSummary[]
-  externalRecords ExternalAcademicRecord[]
-  transfers       StudentTransfer[]
+  enrollments      StudentEnrollment[]
+  parents          StudentParent[]
+  attendanceLogs   AttendanceLog[]
+  attendances      Attendance[]
+  grades           Grade[]
+  results          Result[]
+  termSummaries    StudentTermSummary[]
+  externalRecords  ExternalAcademicRecord[]
+  transfers        StudentTransfer[]
+  feePayments      FeePayment[]
+  reportLogs       ReportDownloadLog[] // Back-relation for reports
+  savedReportCards SavedReportCard[]   // Back-relation for saved PDFs
 
   @@index([currentGradeLevel, status])
 }
@@ -171,8 +213,17 @@ model StudentParent {
 }
 
 // ==========================================
-// ACADEMICS & TIMETABLE (Tables 7-11)
+// ACADEMICS & TIMETABLE
 // ==========================================
+
+model Department {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  teachers    Teacher[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
 
 model AcademicYear {
   id        String   @id @default(uuid())
@@ -184,6 +235,7 @@ model AcademicYear {
   terms                 Term[]
   enrollments           StudentEnrollment[]
   teacherSubjectClasses TeacherSubjectClass[]
+  feeStructures         FeeStructure[]
 }
 
 model Term {
@@ -195,20 +247,26 @@ model Term {
   endDate        DateTime
   isCurrent      Boolean      @default(false)
 
-  attendanceLogs AttendanceLog[]
-  assessments    Assessment[]
-  summaries      StudentTermSummary[]
+  attendanceLogs   AttendanceLog[]
+  assessments      Assessment[]
+  examinations     Examination[]
+  summaries        StudentTermSummary[]
+  reportLogs       ReportDownloadLog[] // Back-relation for reports
+  savedReportCards SavedReportCard[]   // Back-relation for saved PDFs
 }
 
 model ClassSection {
   id          String @id @default(uuid())
   gradeLevel  Int // 9, 10, 11, or 12
-  sectionName String // e.g., "A", "B", "C"
+  sectionName String // "A", "B", "C" OR "NS1", "NS2", "SS1", "SS2"
+  stream      Stream @default(GENERAL)
 
-  students           Student[]
-  enrollments        StudentEnrollment[]
-  subjectAssignments TeacherSubjectClass[]
-  attendanceLogs     AttendanceLog[]
+  // Relations
+  students              Student[]
+  enrollments           StudentEnrollment[]
+  teacherSubjectClasses TeacherSubjectClass[]
+  attendanceLogs        AttendanceLog[]
+  attendance            Attendance[]
 
   @@unique([gradeLevel, sectionName])
 }
@@ -218,7 +276,7 @@ model StudentEnrollment {
   studentId       String
   academicYearId  String
   classSectionId  String
-  gradeLevel      Int // 9, 10, 11, or 12
+  gradeLevel      Int
   stream          Stream          @default(NONE)
   promotionStatus PromotionStatus @default(PENDING)
   enrolledAt      DateTime        @default(now())
@@ -233,16 +291,15 @@ model StudentEnrollment {
 
 model Subject {
   id          String  @id @default(uuid())
-  name        String // e.g., "Mathematics", "Biology"
-  code        String  @unique // e.g., "MATH-09", "BIO-10"
+  name        String // e.g., "Mathematics"
+  code        String  @unique // e.g., "MATH-09"
   description String?
   gradeLevel  Int
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Add this opposite relation field to satisfy Prisma:
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
   teacherSubjectClasses TeacherSubjectClass[]
+  examinations          Examination[]
 }
 
 model TeacherSubjectClass {
@@ -268,13 +325,13 @@ model Timetable {
   teacherSubjectClassId String
   teacherSubjectClass   TeacherSubjectClass @relation(fields: [teacherSubjectClassId], references: [id])
   dayOfWeek             Int // 1 (Mon) to 5 (Fri)
-  periodNumber          Int // Period 1, 2, 3...
-  startTime             String // e.g., "08:00"
-  endTime               String // e.g., "08:45"
+  periodNumber          Int
+  startTime             String // "08:00"
+  endTime               String // "08:45"
 }
 
 // ==========================================
-// OPERATIONS & ATTENDANCE (Table 12)
+// ATTENDANCE MANAGEMENT
 // ==========================================
 
 model AttendanceLog {
@@ -295,17 +352,38 @@ model AttendanceLog {
   @@index([studentId, date])
 }
 
+model Attendance {
+  id      String           @id @default(uuid())
+  date    DateTime         @default(now()) @db.Date
+  status  AttendanceStatus
+  remarks String?
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  classSectionId String
+  classSection   ClassSection @relation(fields: [classSectionId], references: [id], onDelete: Cascade)
+
+  recordedById String
+  recordedBy   Teacher @relation("TeacherRecordedAttendances", fields: [recordedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, classSectionId, date])
+}
+
 // ==========================================
-// EVALUATION & GRADEBOOK (Tables 13-15)
+// EVALUATION, EXAMS & GRADEBOOK
 // ==========================================
 
 model Assessment {
   id                    String         @id @default(uuid())
   teacherSubjectClassId String
   termId                String
-  title                 String // e.g., "Midterm Exam"
+  title                 String
   type                  AssessmentType
-  weightPercentage      Float // e.g., 30.0 for 30%
+  weightPercentage      Float
   maxScore              Float          @default(100.0)
 
   teacherSubjectClass TeacherSubjectClass @relation(fields: [teacherSubjectClassId], references: [id])
@@ -326,20 +404,49 @@ model Grade {
   @@unique([assessmentId, studentId])
 }
 
-model Department {
-  id          String   @id @default(uuid())
-  name        String   @unique // e.g., "Language", "General Science", "Mathematics"
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model Examination {
+  id         String   @id @default(uuid())
+  title      String // e.g., "Mid-Term", "Final Exam"
+  type       ExamType @default(FINAL)
+  date       DateTime @db.Date
+  totalMarks Float // e.g., 100.0
+
+  termId String
+  term   Term   @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  results Result[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Result {
+  id            String  @id @default(uuid())
+  marksObtained Float
+  grade         String? // e.g., "A", "B", "C", "F"
+  remarks       String?
+
+  examinationId String
+  examination   Examination @relation(fields: [examinationId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([examinationId, studentId])
 }
 
 model GradingScale {
   id          String @id @default(uuid())
   letterGrade String @unique // e.g., "A+", "A", "B", "F"
-  minScore    Float // e.g., 90.0
-  maxScore    Float // e.g., 100.0
-  gpaPoint    Float // e.g., 4.0
+  minScore    Float
+  maxScore    Float
+  gpaPoint    Float
 }
 
 model StudentTermSummary {
@@ -357,14 +464,67 @@ model StudentTermSummary {
 }
 
 // ==========================================
-// TRANSFERS & EXTERNAL RECORDS (Tables 16-17)
+// FEES & FINANCIAL MANAGEMENT
+// ==========================================
+
+model FeeStructure {
+  id             String       @id @default(uuid())
+  title          String // e.g., "Grade 9 Tuition Fee"
+  amount         Float
+  gradeLevel     Int // Target grade (9, 10, 11, or 12)
+  dueDate        DateTime
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  payments FeePayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FeePayment {
+  id             String        @id @default(uuid())
+  feeStructureId String
+  feeStructure   FeeStructure  @relation(fields: [feeStructureId], references: [id])
+  studentId      String
+  student        Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  amountPaid     Float
+  paymentDate    DateTime      @default(now())
+  paymentMethod  PaymentMethod
+  receiptNumber  String        @unique
+  status         FeeStatus     @default(PAID)
+  remarks        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// ANNOUNCEMENTS & NOTIFICATIONS
+// ==========================================
+
+model Announcement {
+  id          String    @id @default(uuid())
+  title       String
+  content     String
+  targetRole  UserRole? // Nullable: targeting specific roles or everyone
+  targetGrade Int? // Nullable: targeting specific grade level
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// TRANSFERS & EXTERNAL RECORDS
 // ==========================================
 
 model ExternalAcademicRecord {
   id                 String @id @default(uuid())
   studentId          String
   previousSchoolName String
-  gradeLevel         Int // Grade completed elsewhere (e.g., Grade 9)
+  gradeLevel         Int
   subjectName        String
   creditsEarned      Float
   letterGrade        String
@@ -392,4 +552,34 @@ model TeacherTransfer {
   transferDate      DateTime @default(now())
 
   teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// REPORTS & LOGS
+// ==========================================
+
+model ReportDownloadLog {
+  id          String     @id @default(uuid())
+  generatedBy String     // User ID of who generated it
+  studentId   String?    // Nullable if it's a class/fee report
+  termId      String?
+  reportType  ReportType
+  generatedAt DateTime   @default(now())
+
+  user    User     @relation(fields: [generatedBy], references: [id], onDelete: Cascade)
+  student Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  term    Term?    @relation(fields: [termId], references: [id], onDelete: Cascade)
+}
+
+model SavedReportCard {
+  id         String   @id @default(uuid())
+  studentId  String
+  termId     String
+  pdfUrl     String   // e.g., AWS S3 or Cloudinary URL
+  createdAt  DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  term    Term    @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, termId])
 }

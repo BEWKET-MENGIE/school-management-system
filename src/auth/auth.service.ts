@@ -1,73 +1,152 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../prisma/prisma.service'; // Adjust this path if your PrismaService is located elsewhere
-
-// If you prefer to keep your DTOs in this file for now, we add the "!" here.
-// (Though it is best practice to move these to a separate login.dto.ts file later!)
-export class LoginDto {
-  email!: string;
-  password!: string;
-}
-
-export class RegisterDto {
-  email!: string;
-  password!: string;
-}
+import { JwtService } from '@nestjs/jwt';
+import { Student } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private prisma: PrismaService,
-    private jwtService: JwtService,
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
   ) {}
 
-  async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
-
-    // 1. Find user by email
+  async validateUser(email: string, pass: string) {
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+    if (user && user.isActive && (await bcrypt.compare(pass, user.password))) {
+      const result = Object.assign({}, user);
+      delete (result as Record<string, unknown>).password;
+      return result;
     }
-
-    // 2. Compare the plain text password with the hashed password in the DB
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
-
-    // 3. Generate the JWT payload and return the token
-    const payload = { sub: user.id, email: user.email, role: user.role };
-
-    return {
-      access_token: await this.jwtService.signAsync(payload),
-    };
+    return null;
   }
 
   async register(registerDto: RegisterDto) {
-    const { email, password } = registerDto;
-
-    // FIX: Renamed the new variable to 'hashedPassword' to prevent the ts(2451) redeclaration error
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Save the new user to the database
-    const newUser = await this.prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        role: 'ADMIN', // Adjust default role as needed based on your schema
-      },
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: registerDto.email },
     });
 
-    // Remove the password before returning the user object
-    const sanitizedUser = Object.fromEntries(
-      Object.entries(newUser).filter(([key]) => key !== 'password'),
+    if (existingUser) {
+      throw new BadRequestException('Email is already registered.');
+    }
+
+    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+
+    const {
+      email,
+      role,
+      firstName,
+      lastName,
+      phone,
+      gender,
+      admissionNumber,
+      currentGradeLevel,
+    } = registerDto;
+
+    const resultUser = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          role,
+          isActive: true,
+        },
+      });
+
+      if (role === 'STUDENT') {
+        await tx.student.create({
+          data: {
+            userId: user.id,
+            firstName,
+            lastName,
+            gender: gender || '',
+            admissionNumber: admissionNumber || `ADM-${Date.now()}`,
+            currentGradeLevel: currentGradeLevel || 9,
+          },
+        });
+      }
+
+      return user;
+    });
+
+    const result = Object.assign({}, resultUser);
+    delete (result as Record<string, unknown>).password;
+
+    const localCreatedAt = new Date(resultUser.createdAt).toLocaleString(
+      'en-US',
+      {
+        timeZone: 'Africa/Addis_Ababa',
+      },
     );
-    return sanitizedUser;
+    const localUpdatedAt = new Date(resultUser.updatedAt).toLocaleString(
+      'en-US',
+      {
+        timeZone: 'Africa/Addis_Ababa',
+      },
+    );
+
+    return {
+      message: 'User and profile registered successfully',
+      id: result.id,
+      email: result.email,
+      role: result.role,
+      isActive: result.isActive,
+      profile: {
+        firstName,
+        lastName,
+        gender: gender || '',
+        currentGradeLevel: currentGradeLevel || null,
+        admissionNumber: admissionNumber || null,
+        phone: phone || null,
+      },
+      createdAt: localCreatedAt,
+      updatedAt: localUpdatedAt,
+    };
+  }
+
+  async login(loginDto: LoginDto) {
+    const user = await this.validateUser(loginDto.email, loginDto.password);
+
+    if (!user) {
+      throw new BadRequestException('Invalid credentials or inactive account.');
+    }
+
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const accessToken = this.jwtService.sign(payload);
+
+    return {
+      message: 'Login successful',
+      accessToken,
+    };
+  }
+
+  async getProfile(userId: string, role: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    const userWithoutPassword = Object.assign({}, user);
+    delete (userWithoutPassword as Record<string, unknown>).password;
+
+    let profile: Student | null = null;
+    if (role === 'STUDENT') {
+      profile = await this.prisma.student.findUnique({
+        where: { userId },
+      });
+    }
+
+    return {
+      ...userWithoutPassword,
+      profile: profile || {},
+    };
   }
 }
